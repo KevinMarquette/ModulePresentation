@@ -6,7 +6,7 @@ Remove-Item '.\09_info' -ErrorAction Ignore -Recurse
 Remove-Item '.\10_info' -ErrorAction Ignore -Recurse
 Remove-Item 'c:\temp\MyRepository' -ErrorAction Ignore -Recurse
 Get-PSRepository -Name MyRepository -ErrorAction Ignore | Unregister-PSRepository
-
+function prompt {"AZPowerShell:>"}
 break;
 #endregion
 
@@ -24,31 +24,41 @@ Get-Info -ComputerName localhost
 
 
 # Dot sourcing
-
+code .\01_dotsource\Get-Info01.ps1
 . .\01_dotsource\Get-Info01.ps1
 Get-Info01 -ComputerName localhost
 
 
 
-# Import-Module
+# Import-Module ps1
+code .\02_importps1\Get-Info02.ps1
+Import-Module .\02_importps1\Get-Info02.ps1 -Verbose
+Get-Info02 -ComputerName localhost
+
+Get-Module Get-Info02
+
+
+# Import-Module psm1
+code .\03_importpsm1\Get-Info03.psm1
 Import-Module .\03_importpsm1\Get-Info03.psm1 -Verbose
 Get-Info03 -ComputerName localhost
 
-Get-Module Get-Info*
+Get-Module Get-Info03
 
 
 
 
 # Export-ModuleMember
-code .\04_exportmodulemember\04_Info.psm1 
+code .\04_exportmodulemember\04_Info.psm1
 Import-Module .\04_exportmodulemember\04_Info.psm1 -Verbose
 Get-Info04 -ComputerName localhost
 
-Get-Module *Info*
+Get-Module 04_Info
 
+# Private function
 Get-Class04
 
-InModuleScope -ModuleName Info04 {
+InModuleScope -ModuleName 04_Info {
     Get-Class04
 }
 
@@ -56,14 +66,14 @@ InModuleScope -ModuleName Info04 {
 
 
 
-# folder names
+# folder names for modules
 
 <#
 Scripts
 │   myscript.ps1
 │
-└───GetInfo
-        GetInfo.psm1
+└───05_info
+        05_info.psm1
 #>
 
 Import-Module .\05_info -Verbose
@@ -76,11 +86,16 @@ Get-Info05 -ComputerName localhost
 # $ENV:PSModulePath
 $ENV:PSModulePath -split ';'
 <#
-C:\Users\kmarquette\Documents\WindowsPowerShell\Modules
-C:\Program Files\WindowsPowerShell\Modules
+C:\Users\kmarquette\Documents\PowerShell\Modules
+C:\Program Files\PowerShell\Modules
 C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules
 #>
 
+# Installing from PSGallery
+Install-Module -Name dependson -scope AllUsers
+
+
+# Installing by hand
 $copyItemSplat = @{
     Path = '.\06_info'
     Destination = "C:\Users\$env:username\Documents\WindowsPowerShell\Modules\"
@@ -88,7 +103,7 @@ $copyItemSplat = @{
 }
 Copy-Item @copyItemSplat
 
-LS "C:\Users\$env:username\Documents\WindowsPowerShell\Modules\"
+Get-ChildItem "C:\Users\$env:username\Documents\WindowsPowerShell\Modules\"
 
 Get-Module 06_info -ListAvailable
 
@@ -98,7 +113,7 @@ Get-Info06 -ComputerName localhost
 
 
 
-# $PSModuleAutoloadingPreference 
+# $PSModuleAutoloadingPreference
 #https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-6
 
 $PSModuleAutoloadingPreference = 'none'
@@ -110,14 +125,14 @@ $PSModuleAutoloadingPreference = 'All'
 
 
 # Module Manifest
-tree /f 
+tree /f
 
 $manifest = @{
     Path              = '.\07_info\07_info.psd1'
-    RootModule        = '07_info.psm1' 
+    RootModule        = '07_info.psm1'
     Author            = 'Kevin Marquette'
 }
-New-ModuleManifest @manifest 
+New-ModuleManifest @manifest
 
 Import-Module .\07_info -Verbose
 Get-Info07 -ComputerName localhost
@@ -133,7 +148,7 @@ code .\07_info\07_info.psd1
 
 $manifest = @{
     Path              = '.\08_info\08_info.psd1'
-    RootModule        = '08_info.psm1' 
+    RootModule        = '08_info.psm1'
     Author            = 'Kevin Marquette'
     FunctionsToExport = 'Get-Info08'
     CmdletsToExport   = @()
@@ -144,7 +159,7 @@ New-ModuleManifest @manifest
 
 Import-Module .\08_info -Verbose
 Get-Info08 -ComputerName localhost
-
+Get-Module 08*
 code .\08_info\08_info.psd1
 
 
@@ -167,13 +182,13 @@ code C:\ldx\ldxset\LDXSet\LDXSet.psd1
 
 code C:\workspace\DependsOn\DependsOn\DependsOn.psd1
 
-#> 
+#>
 
 # way to do requires
 
 #> Requires statment at top of script
 #Requires -Modules GetInfo
-GetInfo -ComputerName localhost
+Get-Info -ComputerName localhost
 
 
 
@@ -193,13 +208,14 @@ code C:\ldx\TFVC
         if(Test-Path -Path $root)
         {
             Write-Verbose "processing folder $root"
-            $files = Get-ChildItem -Path $root -Filter *.ps1 | 
+            $fileList = Get-ChildItem -Path $root -Filter *.ps1 |
                 where-Object{ $_.name -NotLike '*.Tests.ps1'}
 
             # dot source each file
-            $files | ForEach-Object{
-                Write-Verbose $_.name; 
-                . $_.FullName
+            foreach($file in $fileList)
+            {
+                Write-Verbose -Message $file.basename
+                . $file.FullName
             }
         }
     }
@@ -214,12 +230,12 @@ code C:\ldx\TFVC
         if(Test-Path -Path $root)
         {
             Write-Verbose "processing folder $root"
-            $files = Get-ChildItem -Path $root -Filter *.ps1 | 
-                where-Object{ $_.name -NotLike '*.Tests.ps1'} 
+            $files = Get-ChildItem -Path $root -Filter *.ps1 |
+                where-Object{ $_.name -NotLike '*.Tests.ps1'}
 
             # add to psm1 file
             $files | ForEach-Object{
-                Write-Verbose $_.name; 
+                Write-Verbose $_.name;
                 Get-Content -Path $_.FullName |
                     Add-Content -Path $path
             }
@@ -268,7 +284,7 @@ code C:\workspace\DependsOn
 # Publish to PSGallery
 $Path = '\\Server\Share\MyRepository'
 $Path = 'c:\temp\MyRepository'
-mkdir $path 
+mkdir $path
 
 Import-Module PowerShellGet
 
@@ -280,14 +296,14 @@ $repo = @{
 }
 Register-PSRepository @repo
 
-Get-PSRepository 
+Get-PSRepository
 
 Publish-Module -Name 06_info -Repository MyRepository -Verbose
-Publish-Module -Name DependsOn -Repository MyRepository 
+Publish-Module -Name DependsOn -Repository MyRepository -RequiredVersion 1.0.2.1
 
 Find-Module DependsOn -Repository MyRepository
 
-Install-Module -Name DependsOn -Repository MyRepository
+Install-Module -Name DependsOn -Repository MyRepository -Scope CurrentUser
 
 
 
@@ -309,7 +325,7 @@ Install-Module -Name DependsOn -Repository MyRepository
 
 
 #> Global Module Scope
-$Script:variable 
+$Script:variable
 
 
 #> Create a PSModuleRoot variable
@@ -323,14 +339,14 @@ Get-Content -Path "$Script:PSModuleRoot\data\info.json"
 
 
 #> Save psd1 file as UTF8 (for git)
-$data = Get-Content -path $path 
+$data = Get-Content -path $path
 $data | Set-Content -Path -Encoding UTF8
 
 
 
 
 #> Create "connections" to reduce common parameters
-C:\ldx\LDXGet\LDXGet\public\Get-ESConnection.ps1
+code C:\ldx\LDXGet\LDXGet\public\Get-ESConnection.ps1
 code C:\ldx\LDXGet
 
 
